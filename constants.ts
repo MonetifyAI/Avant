@@ -1,38 +1,43 @@
 import { 
   LayoutDashboard, 
   Video, 
+  Wand2, 
   Image as ImageIcon, 
-  Box, 
-  Library, 
-  Settings, 
+  Palette, 
+  BarChart3,
   Users,
-  Briefcase
+  Settings
 } from 'lucide-react';
 import { NavItem } from './types';
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, id: 'dashboard' },
-  { label: 'Video Creator', icon: Video, id: 'video' },
-  { label: 'Visualizer', icon: Box, id: 'visualizer' },
-  { label: 'Enhancer', icon: ImageIcon, id: 'enhancer' },
-  { label: 'Prompts', icon: Library, id: 'prompts' },
-  { label: 'Team', icon: Users, id: 'team' },
+  { label: 'Overview', icon: LayoutDashboard, id: 'dashboard' },
+  { label: 'AI Video Studio', icon: Video, id: 'video' },
+  { label: 'Project Visualizer', icon: Palette, id: 'visualizer' },
+  { label: 'Photo Enhancer', icon: Wand2, id: 'enhancer' },
+  { label: 'Campaigns', icon: BarChart3, id: 'campaigns' },
+  { label: 'Leads', icon: Users, id: 'leads' },
   { label: 'Settings', icon: Settings, id: 'settings' },
 ];
 
 export const MOCK_ACTIVITIES = [
-  { id: '1', title: 'Kitchen Remodel Video', time: '10 mins ago', type: 'video', status: 'completed' },
-  { id: '2', title: 'Master Bath Visualization', time: '1 hour ago', type: 'visualization', status: 'completed' },
-  { id: '3', title: 'Living Room Photos', time: '3 hours ago', type: 'photo', status: 'processing' },
-  { id: '4', title: 'Exterior Facade Walkthrough', time: 'Yesterday', type: 'video', status: 'completed' },
+  { id: '1', title: 'Modern Kitchen • Video Ad', time: 'Rendering (85%)', type: 'video', status: 'processing' },
+  { id: '2', title: 'Master Bath • 3D Walkthrough', time: 'Completed 2m ago', type: 'visualization', status: 'completed' },
+  { id: '3', title: 'Lake House • Exterior Fix', time: 'Completed 1h ago', type: 'photo', status: 'completed' },
+  { id: '4', title: 'Downtown Loft • Before/After', time: 'Failed', type: 'video', status: 'failed' },
 ];
 
 export const CHART_DATA = [
-  { name: 'Mon', leads: 4, views: 240 },
-  { name: 'Tue', leads: 7, views: 398 },
-  { name: 'Wed', leads: 5, views: 500 },
-  { name: 'Thu', leads: 9, views: 420 },
-  { name: 'Fri', leads: 12, views: 650 },
-  { name: 'Sat', leads: 15, views: 800 },
-  { name: 'Sun', leads: 10, views: 700 },
+  { name: 'Mon', leads: 4, views: 2400 },
+  { name: 'Tue', leads: 7, views: 3980 },
+  { name: 'Wed', leads: 5, views: 5100 },
+  { name: 'Thu', leads: 9, views: 4200 },
+  { name: 'Fri', leads: 12, views: 6500 },
+  { name: 'Sat', leads: 15, views: 8100 },
+  { name: 'Sun', leads: 10, views: 7200 },
+];
+
+export const RECENT_PROJECTS = [
+  { id: 1, name: "Sunset Blvd Kitchen", type: "Full Remodel", image: "https://images.unsplash.com/photo-1556911220-bff31c812dba?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", status: "Active" },
+  { id: 2, name: "Highland Bath", type: "Renovation", image: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80", status: "Review" },
 ];
