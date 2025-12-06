@@ -4,10 +4,11 @@ import { supabase } from '../lib/supabase';
 
 interface UserProfile {
     id: string;
-    firstName: string;
-    lastName: string;
+    firstname: string;
+    lastname: string;
     company: string;
     email: string;
+    credits: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -69,15 +70,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loadUserProfile = async (userId: string) => {
         try {
+            console.log('Loading profile for user:', userId);
             const { data, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
                 .single();
 
-            if (error) {
+            console.log('Profile loaded:', { data, error });
+
+            if (error && error.code === 'PGRST116') {
+                // Profile doesn't exist - create one automatically
+                console.log('Profile not found, creating automatically...');
+
+                // Get user email from auth
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                const email = authUser?.email || '';
+                const emailName = email.split('@')[0] || 'User';
+
+                // Create a basic profile with default values
+                const newProfile = {
+                    id: userId,
+                    firstname: emailName.charAt(0).toUpperCase() + emailName.slice(1), // Capitalize first letter
+                    lastname: '',
+                    company: '',
+                    email: email,
+                    credits: 4, // Default free credits
+                };
+
+                const { data: createdProfile, error: createError } = await supabase
+                    .from('profiles')
+                    .insert(newProfile)
+                    .select()
+                    .single();
+
+                if (createError) {
+                    console.error('Error creating profile:', createError);
+                } else if (createdProfile) {
+                    console.log('Profile created successfully:', createdProfile);
+                    setProfile(createdProfile);
+                }
+            } else if (error) {
                 console.error('Error loading profile:', error);
             } else if (data) {
+                console.log('Profile data:', data);
+                console.log('firstname:', data.firstname);
                 setProfile(data);
             }
         } catch (error) {
@@ -95,10 +132,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         company: string
     ) => {
         try {
+            console.log('SignUp called with:', { email, firstName, lastName, company });
+
+            // Sign up with user metadata so the database trigger can access the name
             const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
+                options: {
+                    data: {
+                        firstname: firstName,
+                        lastname: lastName,
+                        company: company,
+                    }
+                }
             });
+
+            console.log('Auth signUp result:', { user: data?.user?.id, error });
 
             if (error) {
                 return { error };
@@ -106,21 +155,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Create user profile
             if (data.user) {
-                const { error: profileError } = await supabase.from('profiles').insert({
-                    id: data.user.id,
-                    firstName,
-                    lastName,
-                    company,
-                    email,
-                });
+                console.log('Creating profile for user:', data.user.id);
+                console.log('Profile data:', { firstname: firstName, lastname: lastName, company, email });
+
+                const { data: profileData, error: profileError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: data.user.id,
+                        firstname: firstName,
+                        lastname: lastName,
+                        company,
+                        email,
+                        credits: 4,
+                    })
+                    .select()
+                    .single();
 
                 if (profileError) {
-                    console.error('Error creating profile:', profileError);
+                    console.error('Error creating profile during signup:', profileError);
+                } else {
+                    console.log('Profile created successfully during signup:', profileData);
+                    // Set the profile immediately so it doesn't trigger auto-creation
+                    setProfile(profileData);
                 }
             }
 
             return { error: null };
         } catch (error) {
+            console.error('SignUp error:', error);
             return { error: error as AuthError };
         }
     };

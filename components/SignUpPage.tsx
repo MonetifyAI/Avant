@@ -35,8 +35,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate }) => {
       if (error) {
         setError(error.message);
       } else {
-        // Successfully signed up, navigate to dashboard
-        onNavigate('dashboard');
+        // Successfully signed up, navigate to email verification screen
+        onNavigate('verify_email');
       }
     } catch (err) {
       setError('An unexpected error occurred');

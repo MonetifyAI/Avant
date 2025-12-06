@@ -18,11 +18,13 @@ import { scrapeUrl, crawlWebsite, combineScrapedContent } from '../lib/firecrawl
 import { generatePersonalizedPrompts, GeneratedPrompt } from '../lib/claudeApi';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 type AnalyzerStatus = 'idle' | 'scraping' | 'generating' | 'success' | 'error';
 
 export const WebsiteAnalyzer: React.FC = () => {
     const { user, profile } = useAuth();
+    const toast = useToast();
     const [websiteUrl, setWebsiteUrl] = useState('');
     const [status, setStatus] = useState<AnalyzerStatus>('idle');
     const [statusMessage, setStatusMessage] = useState('');
@@ -103,11 +105,29 @@ export const WebsiteAnalyzer: React.FC = () => {
             setGeneratedPrompts(result.prompts);
             setStatus('success');
             setStatusMessage('');
+            toast.success('Analysis complete!', `Generated ${result.prompts.length} personalized hooks.`);
+
+            // Save business analysis to profile for use in other features
+            if (result.businessSummary && user) {
+                try {
+                    await supabase.from('profiles').update({
+                        website_url: websiteUrl,
+                        location: result.businessSummary.location,
+                        services: result.businessSummary.services,
+                        unique_selling_points: result.businessSummary.uniqueSellingPoints,
+                        company: result.businessSummary.companyName || profile?.company,
+                    }).eq('id', user.id);
+                } catch (saveErr) {
+                    console.warn('Could not save business analysis to profile:', saveErr);
+                }
+            }
 
         } catch (err) {
             console.error('Analysis error:', err);
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+            setError(errorMsg);
             setStatus('error');
+            toast.error('Analysis failed', errorMsg);
         }
     };
 

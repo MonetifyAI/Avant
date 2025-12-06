@@ -154,8 +154,8 @@ export const PromptLibrary: React.FC<PromptLibraryProps> = ({ onSelectPrompt }) 
                     <button
                         onClick={() => setShowFilters(!showFilters)}
                         className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${showFilters || hasActiveFilters
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200'
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                            : 'bg-stone-100 text-stone-700 hover:bg-stone-200 border border-stone-200'
                             }`}
                     >
                         <Filter size={18} />
@@ -180,8 +180,8 @@ export const PromptLibrary: React.FC<PromptLibraryProps> = ({ onSelectPrompt }) 
                                         key={category}
                                         onClick={() => setSelectedCategory(category)}
                                         className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedCategory === category
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         {category}
@@ -199,8 +199,8 @@ export const PromptLibrary: React.FC<PromptLibraryProps> = ({ onSelectPrompt }) 
                                         key={type}
                                         onClick={() => setSelectedHookType(type)}
                                         className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedHookType === type
-                                                ? 'bg-emerald-600 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         {type !== 'All' && HOOK_ICONS[type]} {type}
@@ -240,6 +240,17 @@ export const PromptLibrary: React.FC<PromptLibraryProps> = ({ onSelectPrompt }) 
             {loading ? (
                 <div className="flex items-center justify-center py-20">
                     <div className="w-12 h-12 rounded-full border-3 border-emerald-500 border-t-transparent animate-spin" />
+                </div>
+            ) : prompts.length === 0 ? (
+                /* Empty state when no prompts exist */
+                <div className="bg-stone-50 rounded-[2.5rem] p-12 border-2 border-dashed border-stone-200 text-center">
+                    <div className="w-20 h-20 mx-auto bg-white rounded-full flex items-center justify-center mb-6 shadow-lg">
+                        <BookOpen size={36} className="text-stone-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-stone-900 mb-2">No Prompts Yet</h3>
+                    <p className="text-stone-500 max-w-md mx-auto">
+                        Use the Website Analyzer to automatically generate personalized prompts for your business, or create custom prompts in the AI Video Studio.
+                    </p>
                 </div>
             ) : (
                 <div className="space-y-8">

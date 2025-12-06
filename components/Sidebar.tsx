@@ -1,16 +1,35 @@
 import React from 'react';
 import { NAV_ITEMS } from '../constants';
-import { LogOut, Hexagon } from 'lucide-react';
+import { LogOut, Hexagon, X } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isMobileOpen: boolean;
+  onClose?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMobileOpen }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMobileOpen, onClose }) => {
+  const { signOut } = useAuth();
+
+  const handleNavClick = (tabId: string) => {
+    setActiveTab(tabId);
+    // Close sidebar on mobile after navigation
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <aside 
+    <aside
       className={`
         fixed z-50 w-24 bg-[#1c1917] text-white flex flex-col items-center py-8 transition-transform duration-300 ease-in-out font-sans
         /* Island Positioning (Mobile & Desktop) */
@@ -20,6 +39,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-[150%] md:translate-x-0'}
       `}
     >
+      {/* Mobile Close Button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 text-stone-500 hover:text-white hover:bg-white/10 rounded-xl transition-colors md:hidden"
+      >
+        <X size={20} />
+      </button>
+
       <div className="mb-8 relative group cursor-pointer mt-2 flex-shrink-0">
         {/* Logo */}
         <div className="relative w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-glow transform group-hover:rotate-12 transition-transform duration-500">
@@ -43,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => handleNavClick(item.id)}
               className="group relative w-full flex justify-center py-2 flex-shrink-0"
               aria-label={item.label}
             >
@@ -54,13 +81,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
 
               <div className={`
                 p-3.5 rounded-2xl transition-all duration-300
-                ${isActive 
-                  ? 'bg-white/10 text-emerald-400' 
+                ${isActive
+                  ? 'bg-white/10 text-emerald-400'
                   : 'text-stone-500 hover:text-stone-200 hover:bg-white/5'}
               `}>
                 <item.icon size={24} strokeWidth={isActive ? 2.5 : 2} className="transition-transform group-hover:scale-110" />
               </div>
-              
+
               {/* Tooltip */}
               <span className="absolute left-20 top-1/2 -translate-y-1/2 bg-stone-900 text-white text-xs font-bold px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none border border-white/10 shadow-xl translate-x-2 group-hover:translate-x-0 transition-transform hidden md:block">
                 {item.label}
@@ -71,7 +98,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isMob
       </nav>
 
       <div className="mt-4 flex-shrink-0 mb-2 px-2 w-full flex justify-center">
-        <button className="p-3.5 text-stone-600 hover:text-rose-400 hover:bg-white/5 rounded-2xl transition-colors">
+        <button
+          onClick={handleSignOut}
+          className="p-3.5 text-stone-600 hover:text-rose-400 hover:bg-white/5 rounded-2xl transition-colors"
+          title="Sign Out"
+        >
           <LogOut size={24} />
         </button>
       </div>

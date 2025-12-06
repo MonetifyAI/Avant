@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Zap, Check, CreditCard, Sparkles } from 'lucide-react';
+import { X, Zap, Check, CreditCard, Sparkles, Phone } from 'lucide-react';
 import { CreditPackage } from '../hooks/useCredits';
 
 interface PaywallModalProps {
@@ -124,7 +124,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                 </div>
 
                 {/* What credits buy */}
-                <div className="px-6 pb-6">
+                <div className="px-6 pb-4">
                     <div className="bg-stone-50 rounded-xl p-4">
                         <h4 className="font-bold text-stone-700 text-sm mb-2">What can you do with credits?</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -145,6 +145,50 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
                                 <span>Free: Prompt Library</span>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Agency Plan */}
+                <div className="px-6 pb-6">
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-5 border-2 border-amber-200 relative overflow-hidden">
+                        {/* Premium badge */}
+                        <div className="absolute -top-1 -right-1 px-4 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-bl-xl rounded-tr-xl shadow-lg">
+                            🚀 AGENCY
+                        </div>
+
+                        <h4 className="font-bold text-stone-900 text-lg mb-2">Want Us To Do It All For You?</h4>
+                        <p className="text-stone-600 text-sm mb-4">
+                            Our agency handles your entire marketing — you just close deals.
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm mb-5">
+                            <div className="flex items-center gap-2 text-stone-700">
+                                <Check size={14} className="text-amber-600 flex-shrink-0" />
+                                <span>Done-For-You Ads</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-stone-700">
+                                <Check size={14} className="text-amber-600 flex-shrink-0" />
+                                <span>Pay Per Lead Model</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-stone-700">
+                                <Check size={14} className="text-amber-600 flex-shrink-0" />
+                                <span>Speed-to-Lead Systems</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-stone-700">
+                                <Check size={14} className="text-amber-600 flex-shrink-0" />
+                                <span>AI Receptionist 24/7</span>
+                            </div>
+                        </div>
+
+                        <a
+                            href="https://cal.com/monetify/free-lead-audit"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-500/30 hover:-translate-y-0.5"
+                        >
+                            <Phone size={18} />
+                            Book a Free Lead Audit Call
+                        </a>
                     </div>
                 </div>
 

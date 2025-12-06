@@ -33,11 +33,15 @@ export interface Project {
 
 export interface UserProfile {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstname: string;
+  lastname: string;
   company: string;
   email: string;
   credits: number;
+  website_url?: string;
+  location?: string;
+  services?: string[];
+  unique_selling_points?: string[];
   created_at?: string;
   updated_at?: string;
 }

@@ -6,30 +6,60 @@ import { Dashboard } from './components/Dashboard';
 import { LandingPage } from './components/LandingPage';
 import { LoginPage } from './components/LoginPage';
 import { SignUpPage } from './components/SignUpPage';
+import { EmailVerification } from './components/EmailVerification';
 import { AdGenerator } from './components/AdGenerator';
 import { PromptLibrary } from './components/PromptLibrary';
 import { WebsiteAnalyzer } from './components/WebsiteAnalyzer';
 import { ProjectVisualizer } from './components/ProjectVisualizer';
 import { useAuth } from './contexts/AuthContext';
+import { supabase } from './lib/supabase';
 
-type ViewState = 'landing' | 'login' | 'signup' | 'dashboard';
+type ViewState = 'landing' | 'login' | 'signup' | 'verify_email' | 'dashboard';
 
 export default function App() {
   const { user, loading } = useAuth();
   const [currentView, setCurrentView] = useState<ViewState>('landing');
+  const [pendingEmail, setPendingEmail] = useState<string>('');
 
   // Dashboard State
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  // Redirect to dashboard if user is logged in
+  // Redirect to dashboard if user is logged in AND email is confirmed
   useEffect(() => {
-    if (user && currentView !== 'dashboard') {
-      setCurrentView('dashboard');
+    if (user) {
+      // Check if email is confirmed
+      if (user.email_confirmed_at) {
+        setCurrentView('dashboard');
+      } else if (currentView !== 'verify_email' && currentView !== 'signup') {
+        // User signed up but email not verified yet
+        setPendingEmail(user.email || '');
+        setCurrentView('verify_email');
+      }
     } else if (!user && currentView === 'dashboard') {
       setCurrentView('landing');
     }
   }, [user]);
+
+  // Handle navigation from signup - go to verify_email instead of dashboard
+  const handleNavigate = (page: string) => {
+    if (page === 'dashboard' && user && !user.email_confirmed_at) {
+      setPendingEmail(user.email || '');
+      setCurrentView('verify_email');
+    } else {
+      setCurrentView(page as ViewState);
+    }
+  };
+
+  // Resend verification email
+  const handleResendVerification = async () => {
+    if (pendingEmail) {
+      await supabase.auth.resend({
+        type: 'signup',
+        email: pendingEmail,
+      });
+    }
+  };
 
   // Show loading state while checking authentication
   if (loading) {
@@ -48,15 +78,25 @@ export default function App() {
 
   // Authentication & Landing Flow
   if (currentView === 'landing') {
-    return <LandingPage onNavigate={(page) => setCurrentView(page as ViewState)} />;
+    return <LandingPage onNavigate={handleNavigate} />;
   }
 
   if (currentView === 'login') {
-    return <LoginPage onNavigate={(page) => setCurrentView(page as ViewState)} />;
+    return <LoginPage onNavigate={handleNavigate} />;
   }
 
   if (currentView === 'signup') {
-    return <SignUpPage onNavigate={(page) => setCurrentView(page as ViewState)} />;
+    return <SignUpPage onNavigate={handleNavigate} />;
+  }
+
+  if (currentView === 'verify_email') {
+    return (
+      <EmailVerification
+        email={pendingEmail}
+        onBack={() => setCurrentView('login')}
+        onResend={handleResendVerification}
+      />
+    );
   }
 
   // Get page title based on active tab
@@ -74,7 +114,7 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigateToTab={setActiveTab} />;
       case 'video':
         return <AdGenerator />;
       case 'prompts':
@@ -111,6 +151,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isMobileOpen={isMobileNavOpen}
+        onClose={() => setIsMobileNavOpen(false)}
       />
 
       {/* Mobile Overlay */}

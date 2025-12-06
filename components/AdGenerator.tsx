@@ -11,10 +11,16 @@ import {
     Clock,
     CheckCircle2,
     XCircle,
-    ChevronDown
+    ChevronDown,
+    Lightbulb,
+    ArrowRight,
+    X as CloseIcon
 } from 'lucide-react';
 import { ImageUploader } from './ImageUploader';
 import { HookSelector } from './HookSelector';
+import { GenerationHistory } from './GenerationHistory';
+import { ScriptGenerator } from './ScriptGenerator';
+import { GeneratedScript } from '../lib/scriptGenerator';
 import {
     HookType,
     ROOM_TYPES,
@@ -27,17 +33,33 @@ import {
 } from '../lib/soraApi';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 type FaceMode = 'upload' | 'describe';
 type GenerationStatus = 'idle' | 'generating' | 'success' | 'failed';
+type GenerationStep = 'starting' | 'uploading' | 'rendering' | 'finalizing';
+
+// Motivational quotes for loading screen
+const LOADING_QUOTES = [
+    { text: "Great ads don't sell products, they sell transformations.", author: "Alex Hormozi" },
+    { text: "The goal isn't to be perfect. The goal is to be better than yesterday.", author: "Tony Robbins" },
+    { text: "Your before/after is someone's dream come true.", author: "Marketing Wisdom" },
+    { text: "Every expert was once a beginner.", author: "Helen Hayes" },
+    { text: "The best marketing doesn't feel like marketing.", author: "Tom Fishburne" },
+    { text: "People don't buy products. They buy better versions of themselves.", author: "Seth Godin" },
+    { text: "Content builds relationships. Relationships build trust. Trust drives revenue.", author: "Andrew Davis" },
+    { text: "Show, don't tell. Your work speaks louder than words.", author: "Creative Wisdom" },
+];
 
 export const AdGenerator: React.FC = () => {
     const { user, profile } = useAuth();
+    const toast = useToast();
 
     // Image state
     const [beforeImage, setBeforeImage] = useState('');
     const [afterImage, setAfterImage] = useState('');
     const [logoUrl, setLogoUrl] = useState('');
+    const [showOnboardingTip, setShowOnboardingTip] = useState(true);
 
     // Face state
     const [faceMode, setFaceMode] = useState<FaceMode>('describe');
@@ -51,6 +73,7 @@ export const AdGenerator: React.FC = () => {
     const [afterDescription, setAfterDescription] = useState('');
     const [customPrompt, setCustomPrompt] = useState('');
     const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+    const [generatedScript, setGeneratedScript] = useState<GeneratedScript | null>(null);
 
     // Video settings
     const [aspectRatio, setAspectRatio] = useState<'landscape' | 'portrait'>('landscape');
@@ -63,6 +86,8 @@ export const AdGenerator: React.FC = () => {
     const [resultUrl, setResultUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [pollingStatus, setPollingStatus] = useState<string>('');
+    const [generationStep, setGenerationStep] = useState<GenerationStep>('starting');
+    const [currentQuote, setCurrentQuote] = useState(LOADING_QUOTES[0]);
 
     // User's saved logos
     const [savedLogos, setSavedLogos] = useState<Array<{ id: string; url: string; name: string }>>([]);
@@ -94,6 +119,11 @@ export const AdGenerator: React.FC = () => {
 
     // Build the full prompt
     const getFullPrompt = (): string => {
+        // Use AI-generated script's video prompt if available
+        if (generatedScript?.videoPrompt) {
+            return generatedScript.videoPrompt;
+        }
+
         if (useCustomPrompt && customPrompt) {
             return customPrompt;
         }
@@ -112,6 +142,12 @@ export const AdGenerator: React.FC = () => {
         });
     };
 
+    // Handler for AI-generated scripts
+    const handleUseScript = (script: GeneratedScript) => {
+        setGeneratedScript(script);
+        setUseCustomPrompt(false); // Disable custom prompt when using AI script
+    };
+
     // Validate inputs
     const canGenerate = (): boolean => {
         if (!beforeImage || !afterImage) return false;
@@ -127,7 +163,14 @@ export const AdGenerator: React.FC = () => {
         setStatus('generating');
         setError(null);
         setResultUrl(null);
-        setPollingStatus('Starting generation...');
+        setGenerationStep('starting');
+        setPollingStatus('Preparing your video...');
+        setCurrentQuote(LOADING_QUOTES[Math.floor(Math.random() * LOADING_QUOTES.length)]);
+
+        // Rotate quotes every 10 seconds
+        const quoteInterval = setInterval(() => {
+            setCurrentQuote(LOADING_QUOTES[Math.floor(Math.random() * LOADING_QUOTES.length)]);
+        }, 10000);
 
         try {
             // Build image URLs (combine before and after, API uses first frame)
@@ -137,7 +180,8 @@ export const AdGenerator: React.FC = () => {
             const prompt = getFullPrompt();
 
             // Create the task
-            setPollingStatus('Creating video task...');
+            setGenerationStep('uploading');
+            setPollingStatus('Uploading images...');
             const createResponse = await createVideoTask({
                 prompt,
                 image_urls: imageUrls,
@@ -153,7 +197,8 @@ export const AdGenerator: React.FC = () => {
 
             const newTaskId = createResponse.data.taskId;
             setTaskId(newTaskId);
-            setPollingStatus('Video is being generated...');
+            setGenerationStep('rendering');
+            setPollingStatus('AI is rendering your video...');
 
             // Save task to database
             await supabase.from('ad_tasks').insert({
@@ -176,7 +221,7 @@ export const AdGenerator: React.FC = () => {
                 newTaskId,
                 (statusResponse: TaskStatusResponse) => {
                     if (statusResponse.data.state === 'waiting') {
-                        setPollingStatus('Video is rendering... This may take a few minutes.');
+                        setPollingStatus('Rendering in progress... Almost there!');
                     }
                 },
                 5000,
@@ -186,8 +231,11 @@ export const AdGenerator: React.FC = () => {
             if (result.data.state === 'success') {
                 const urls = extractResultUrls(result);
                 if (urls.length > 0) {
+                    setGenerationStep('finalizing');
                     setResultUrl(urls[0]);
                     setStatus('success');
+                    clearInterval(quoteInterval);
+                    toast.success('Video generated!', 'Your ad is ready to download.');
 
                     // Update database
                     await supabase
@@ -205,9 +253,12 @@ export const AdGenerator: React.FC = () => {
                 throw new Error(result.data.failMsg || 'Video generation failed');
             }
         } catch (err) {
+            clearInterval(quoteInterval);
             console.error('Generation error:', err);
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+            setError(errorMsg);
             setStatus('failed');
+            toast.error('Generation failed', errorMsg);
 
             // Update database if we have a task ID
             if (taskId) {
@@ -247,6 +298,25 @@ export const AdGenerator: React.FC = () => {
                     <span>Prompt Library</span>
                 </button>
             </div>
+
+            {/* Onboarding Tip - Show if user hasn't analyzed their website */}
+            {showOnboardingTip && !profile?.website_url && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4">
+                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Lightbulb size={20} className="text-amber-600" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="font-semibold text-amber-900">Pro Tip: Personalize your ads!</p>
+                        <p className="text-sm text-amber-700">Run the Website Analyzer first to auto-fill your business info for better scripts.</p>
+                    </div>
+                    <button
+                        onClick={() => setShowOnboardingTip(false)}
+                        className="p-2 hover:bg-amber-100 rounded-lg transition-colors flex-shrink-0"
+                    >
+                        <CloseIcon size={16} className="text-amber-500" />
+                    </button>
+                </div>
+            )}
 
             <div className="grid grid-cols-12 gap-6">
                 {/* Left Column - Inputs */}
@@ -316,8 +386,8 @@ export const AdGenerator: React.FC = () => {
                                                 key={logo.id}
                                                 onClick={() => setLogoUrl(logo.url)}
                                                 className={`w-14 h-14 rounded-xl border-2 overflow-hidden transition-all ${logoUrl === logo.url
-                                                        ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                                                        : 'border-stone-200 hover:border-stone-300'
+                                                    ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+                                                    : 'border-stone-200 hover:border-stone-300'
                                                     }`}
                                             >
                                                 <img src={logo.url} alt={logo.name} className="w-full h-full object-cover" />
@@ -346,8 +416,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setFaceMode('describe')}
                                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${faceMode === 'describe'
-                                                ? 'bg-white text-stone-900 shadow-sm'
-                                                : 'text-stone-500 hover:text-stone-700'
+                                            ? 'bg-white text-stone-900 shadow-sm'
+                                            : 'text-stone-500 hover:text-stone-700'
                                             }`}
                                     >
                                         <Type size={16} />
@@ -356,8 +426,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setFaceMode('upload')}
                                         className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${faceMode === 'upload'
-                                                ? 'bg-white text-stone-900 shadow-sm'
-                                                : 'text-stone-500 hover:text-stone-700'
+                                            ? 'bg-white text-stone-900 shadow-sm'
+                                            : 'text-stone-500 hover:text-stone-700'
                                             }`}
                                     >
                                         <User size={16} />
@@ -442,6 +512,20 @@ export const AdGenerator: React.FC = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* AI Script Generator */}
+                    <ScriptGenerator
+                        hookType={hookType}
+                        roomType={roomType}
+                        companyName={profile?.company}
+                        location={profile?.location}
+                        services={profile?.services}
+                        uniqueSellingPoints={profile?.unique_selling_points}
+                        duration={duration}
+                        beforeDescription={beforeDescription}
+                        afterDescription={afterDescription}
+                        onUseScript={handleUseScript}
+                    />
                 </div>
 
                 {/* Right Column - Preview & Generate */}
@@ -459,8 +543,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setAspectRatio('landscape')}
                                         className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all ${aspectRatio === 'landscape'
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         🖥️ Landscape
@@ -468,8 +552,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setAspectRatio('portrait')}
                                         className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all ${aspectRatio === 'portrait'
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         📱 Portrait
@@ -484,8 +568,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setDuration('10')}
                                         className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all ${duration === '10'
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         10 seconds
@@ -493,8 +577,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setDuration('15')}
                                         className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all ${duration === '15'
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         15 seconds
@@ -509,8 +593,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setQuality('standard')}
                                         className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all ${quality === 'standard'
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         Standard
@@ -518,8 +602,8 @@ export const AdGenerator: React.FC = () => {
                                     <button
                                         onClick={() => setQuality('high')}
                                         className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all ${quality === 'high'
-                                                ? 'bg-stone-900 text-white'
-                                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                            ? 'bg-stone-900 text-white'
+                                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                                             }`}
                                     >
                                         High (4x credits)
@@ -548,8 +632,8 @@ export const AdGenerator: React.FC = () => {
                                 onClick={handleGenerate}
                                 disabled={!canGenerate()}
                                 className={`w-full py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all ${canGenerate()
-                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/30 hover:-translate-y-0.5'
-                                        : 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/30 hover:-translate-y-0.5'
+                                    : 'bg-stone-200 text-stone-400 cursor-not-allowed'
                                     }`}
                             >
                                 <Play size={24} className="fill-current" />
@@ -558,13 +642,62 @@ export const AdGenerator: React.FC = () => {
                         )}
 
                         {status === 'generating' && (
-                            <div className="text-center space-y-4">
-                                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center">
-                                    <RefreshCw size={28} className="text-emerald-600 animate-spin" />
+                            <div className="space-y-6">
+                                {/* Header */}
+                                <div className="text-center">
+                                    <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center mb-4">
+                                        <RefreshCw size={28} className="text-emerald-600 animate-spin" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-stone-900">Creating Your Video Ad</h3>
+                                    <p className="text-sm text-stone-500 mt-1">{pollingStatus}</p>
                                 </div>
-                                <div>
-                                    <p className="font-bold text-stone-900">{pollingStatus}</p>
-                                    <p className="text-sm text-stone-500 mt-1">This usually takes 2-5 minutes</p>
+
+                                {/* Progress Steps */}
+                                <div className="space-y-3 bg-stone-50 rounded-2xl p-4">
+                                    <div className={`flex items-center gap-3 ${generationStep === 'starting' || generationStep === 'uploading' || generationStep === 'rendering' || generationStep === 'finalizing' ? 'text-stone-900' : 'text-stone-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${generationStep !== 'starting' ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600 animate-pulse'
+                                            }`}>
+                                            {generationStep !== 'starting' ? '✓' : '1'}
+                                        </div>
+                                        <span className="text-sm font-medium">Preparing images</span>
+                                    </div>
+                                    <div className={`flex items-center gap-3 ${generationStep === 'uploading' || generationStep === 'rendering' || generationStep === 'finalizing' ? 'text-stone-900' : 'text-stone-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${generationStep === 'rendering' || generationStep === 'finalizing' ? 'bg-emerald-500 text-white' : generationStep === 'uploading' ? 'bg-emerald-100 text-emerald-600 animate-pulse' : 'bg-stone-200 text-stone-400'
+                                            }`}>
+                                            {generationStep === 'rendering' || generationStep === 'finalizing' ? '✓' : '2'}
+                                        </div>
+                                        <span className="text-sm font-medium">Uploading to AI</span>
+                                    </div>
+                                    <div className={`flex items-center gap-3 ${generationStep === 'rendering' || generationStep === 'finalizing' ? 'text-stone-900' : 'text-stone-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${generationStep === 'finalizing' ? 'bg-emerald-500 text-white' : generationStep === 'rendering' ? 'bg-emerald-100 text-emerald-600 animate-pulse' : 'bg-stone-200 text-stone-400'
+                                            }`}>
+                                            {generationStep === 'finalizing' ? '✓' : '3'}
+                                        </div>
+                                        <span className="text-sm font-medium">Rendering video</span>
+                                    </div>
+                                    <div className={`flex items-center gap-3 ${generationStep === 'finalizing' ? 'text-stone-900' : 'text-stone-400'}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${generationStep === 'finalizing' ? 'bg-emerald-100 text-emerald-600 animate-pulse' : 'bg-stone-200 text-stone-400'
+                                            }`}>
+                                            4
+                                        </div>
+                                        <span className="text-sm font-medium">Finalizing</span>
+                                    </div>
+                                </div>
+
+                                {/* Quote */}
+                                <div className="bg-gradient-to-br from-stone-900 to-stone-800 rounded-2xl p-5 text-center">
+                                    <p className="text-white/90 text-sm italic leading-relaxed">
+                                        "{currentQuote.text}"
+                                    </p>
+                                    <p className="text-emerald-400 text-xs font-medium mt-2">
+                                        — {currentQuote.author}
+                                    </p>
+                                </div>
+
+                                {/* Time estimate */}
+                                <div className="flex items-center justify-center gap-2 text-stone-400 text-sm">
+                                    <Clock size={14} />
+                                    <span>Usually takes 2-5 minutes</span>
                                 </div>
                             </div>
                         )}
@@ -632,6 +765,10 @@ export const AdGenerator: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Generation History Panel */}
+            <GenerationHistory />
         </div>
     );
 };
+
